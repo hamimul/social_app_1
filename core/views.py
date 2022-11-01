@@ -2,7 +2,6 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.models import User, auth
 from .models import Profile
-from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 
 
@@ -14,6 +13,26 @@ def index(request):
     :return: homepage
     """
     return render(request, 'index.html')
+
+
+@login_required(login_url='signin')
+def settings(request):
+    user_profile = Profile.objects.get(user=request.user)
+    if request.method == 'POST':
+        if request.FILES.get('image') is None:
+            image = user_profile.profile_img
+        elif request.FILES.get('image') is not None:
+            image = request.FILES.get('image')
+        bio = request.POST['bio']
+        location = request.POST['location']
+
+        user_profile.profile_img = image
+        user_profile.bio = bio
+        user_profile.location = location
+        user_profile.save()
+        return redirect('settings')
+
+    return render(request, 'setting.html', {'user_profile': user_profile})
 
 
 def signup(request):
@@ -45,11 +64,8 @@ def signup(request):
                                                 password=password2)
                 user.save()
 
-                """ 
-                    TODO:
-                    login user and redirect to setting page
-                    than creat profile to save profile
-                """
+                user_login = auth.authenticate(username=username, password=password)
+                auth.login(request, user_login)
 
                 """
                     create a profile object for new user
@@ -63,13 +79,12 @@ def signup(request):
                                                      id_user=user_model.id)
                 new_profile.save()
 
-                return redirect('signup')
+                return redirect('settings')
         else:
             messages.info(request, "Password not matching")
             return redirect('signup')
     else:
         return render(request, 'signup.html')
-
 
 
 def signin(request):
